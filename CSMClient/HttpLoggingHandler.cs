@@ -111,7 +111,7 @@ namespace CSMClient
             }
 
             var result = await content.ReadAsStringAsync();
-            if (content.Headers.ContentType.MediaType.Contains("application/json"))
+            if (content.Headers.ContentType != null && content.Headers.ContentType.MediaType.Contains("application/json"))
             {
                 if (result.StartsWith("["))
                 {
