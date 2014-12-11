@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -19,6 +20,7 @@ namespace CSMClient
         {
             try
             {
+                Trace.Listeners.Add(new ConsoleTraceListener());
                 if (args.Length > 0)
                 {
                     if (String.Equals(args[0], "login", StringComparison.OrdinalIgnoreCase))

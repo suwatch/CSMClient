@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Configuration;
 using System.Net.Http;
 using System.Text;
 using System.Threading;
@@ -80,7 +82,7 @@ namespace AADHelpers
             _env = new Lazy<AzureEnvs>(() => env);
 
             var authResult = await GetAuthorizationResult(tokenCache, AADTenantId);
-            Console.WriteLine("Welcome {0} (Tenant: {1})", authResult.UserInfo.UserId, authResult.TenantId);
+            Trace.WriteLine(String.Format("Welcome {0} (Tenant: {1})", authResult.UserInfo.UserId, authResult.TenantId));
 
             var tenants = await GetTokenForTenants(tokenCache, authResult);
 
@@ -97,7 +99,7 @@ namespace AADHelpers
             {
                 Console.Write("Deleting {0} ... ", file);
                 File.Delete(file);
-                Console.WriteLine("Done!");
+                Trace.WriteLine("Done!");
             }
         }
 
@@ -119,16 +121,16 @@ namespace AADHelpers
 
                     var user = authResult.UserInfo.UserId;
                     var details = tenantCache[tenantId];
-                    Console.WriteLine("User: {0}, Tenant: {1} {2} ({3})", user, tenantId, details.displayName, details.domain);
+                    Trace.WriteLine(String.Format("User: {0}, Tenant: {1} {2} ({3})", user, tenantId, details.displayName, details.domain));
 
                     var subscriptions = details.subscriptions;
-                    Console.WriteLine("\tThere are {0} subscriptions", subscriptions.Length);
+                    Trace.WriteLine(String.Format("\tThere are {0} subscriptions", subscriptions.Length));
 
                     foreach (var subscription in subscriptions)
                     {
-                        Console.WriteLine("\tSubscription {0} ({1})", subscription.subscriptionId, subscription.displayName);
+                        Trace.WriteLine(String.Format("\tSubscription {0} ({1})", subscription.subscriptionId, subscription.displayName));
                     }
-                    Console.WriteLine();
+                    Trace.WriteLine(String.Empty);
                 }
             }
         }
@@ -189,7 +191,7 @@ namespace AADHelpers
             {
                 foreach (var authResult in authResults)
                 {
-                    Console.WriteLine(authResult.UserInfo.UserId);
+                    Trace.WriteLine(authResult.UserInfo.UserId);
                 }
 
                 throw new InvalidOperationException("Multiple users found.  Please specify user argument!");
@@ -215,14 +217,20 @@ namespace AADHelpers
             var pairs = tenantCache.Where(p => p.Value.subscriptions.Any(subscription => subscriptionId == subscription.subscriptionId)).ToArray();
             if (pairs.Length == 0)
             {
-                Console.WriteLine();
-                Console.WriteLine(String.Format("Cannot find subscription {0} cache!   Use recent token instead.", subscriptionId));
-                Console.WriteLine();
+                Trace.WriteLine(String.Empty);
+                Trace.WriteLine(String.Format("Cannot find subscription {0} cache!   Use recent token instead.", subscriptionId));
+                Trace.WriteLine(String.Empty);
 
                 return await GetRecentToken();
             }
 
             return await GetTokenByTenant(pairs[0].Key);
+        }
+
+        public static bool IsCacheValid()
+        {
+            var cache = TokenCache.GetCache();
+            return cache != null && cache.Count > 0;
         }
 
         private static Uri GetCSMUri(AzureEnvs envs)
@@ -294,7 +302,7 @@ namespace AADHelpers
         private static async Task<IDictionary<string, AuthenticationResult>> GetTokenForTenants(Dictionary<TokenCacheKey, string> tokenCache, AuthenticationResult authResult)
         {
             var tenantIds = await GetTenantIds(authResult);
-            Console.WriteLine("User belongs to {1} tenants", authResult.UserInfo.UserId, tenantIds.Length);
+            Trace.WriteLine(String.Format("User belongs to {1} tenants", authResult.UserInfo.UserId, tenantIds.Length));
 
             var tenantCache = TenantCache.GetCache();
             var results = new Dictionary<string, AuthenticationResult>();
@@ -314,8 +322,8 @@ namespace AADHelpers
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("User: {0}, Tenant: {1} {2}", authResult.UserInfo.UserId, tenantId, ex.Message);
-                    Console.WriteLine();
+                    Trace.WriteLine(String.Format("User: {0}, Tenant: {1} {2}", authResult.UserInfo.UserId, tenantId, ex.Message));
+                    Trace.WriteLine(String.Empty);
                     continue;
                 }
 
@@ -325,17 +333,17 @@ namespace AADHelpers
                     var details = await GetTenantDetail(result, tenantId);
                     info.displayName = details.displayName;
                     info.domain = details.verifiedDomains.First(d => d.@default).name;
-                    Console.WriteLine("User: {0}, Tenant: {1} {2} ({3})", result.UserInfo.UserId, tenantId, details.displayName, details.verifiedDomains.First(d => d.@default).name);
+                    Trace.WriteLine(String.Format("User: {0}, Tenant: {1} {2} ({3})", result.UserInfo.UserId, tenantId, details.displayName, details.verifiedDomains.First(d => d.@default).name));
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("User: {0}, Tenant: {1} {2}", result.UserInfo.UserId, tenantId, ex.Message);
+                    Trace.WriteLine(String.Format("User: {0}, Tenant: {1} {2}", result.UserInfo.UserId, tenantId, ex.Message));
                 }
 
                 try
                 {
                     var subscriptions = await GetSubscriptions(result);
-                    Console.WriteLine("\tThere are {0} subscriptions", subscriptions.Length);
+                    Trace.WriteLine(String.Format("\tThere are {0} subscriptions", subscriptions.Length));
 
                     info.subscriptions = subscriptions.Select(subscription => new SubscriptionCacheInfo 
                     {
@@ -345,15 +353,15 @@ namespace AADHelpers
 
                     foreach (var subscription in subscriptions)
                     {
-                        Console.WriteLine("\tSubscription {0} ({1})", subscription.subscriptionId, subscription.displayName);
+                        Trace.WriteLine(String.Format("\tSubscription {0} ({1})", subscription.subscriptionId, subscription.displayName));
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("\t{0}!", ex.Message);
+                    Trace.WriteLine("\t{0}!", ex.Message);
                 }
                 tenantCache[tenantId] = info;
-                Console.WriteLine();
+                Trace.WriteLine(String.Empty);
             }
 
             TenantCache.SaveCache(tenantCache);
